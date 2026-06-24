@@ -1,13 +1,16 @@
 const express = require('express');
-const router = express.Router();
-const {
-  getCategories,
-  getCategory,
-  createCategory,
-} = require('../controllers/categoryController');
+const categoryController = require('../controllers/categoryController');
+const { adminAuth } = require('../middleware/adminAuth');
 
-router.get('/', getCategories);
-router.get('/:id', getCategory);
-router.post('/', createCategory); // Admin only (we'll add auth later)
+const router = express.Router();
+
+// Public routes
+router.get('/', categoryController.getCategories);
+router.get('/:id', categoryController.getCategoryById);
+
+// Admin routes
+router.post('/', adminAuth, categoryController.createCategory);
+router.put('/:id', adminAuth, categoryController.updateCategory);
+router.delete('/:id', adminAuth, categoryController.deleteCategory);
 
 module.exports = router;

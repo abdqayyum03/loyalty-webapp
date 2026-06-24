@@ -94,20 +94,20 @@ exports.verifyOTP = async (req, res) => {
       });
     }
 
-    // Create user
+    // Create user with 500 welcome points
     const hashedPassword = await User.hashPassword(otpRecord.password);
 
     const user = new User({
       username: otpRecord.username,
       email: otpRecord.email,
       password: hashedPassword,
-      points: 0,
+      points: 500, // ✅ CHANGED FROM 0 TO 500 - Welcome bonus points
       is_active: true,
       role: 'user',
     });
 
     await user.save();
-    console.log(`✅ User registered: ${user.email}`);
+    console.log(`✅ User registered: ${user.email} with 500 welcome points`);
 
     // Delete OTP record
     await OTP.deleteOne({ _id: otpRecord._id });
@@ -123,6 +123,7 @@ exports.verifyOTP = async (req, res) => {
         id: user._id,
         username: user.username,
         email: user.email,
+        points: 500, // ✅ Return points in response
       },
     });
   } catch (error) {
@@ -201,13 +202,13 @@ exports.register = async (req, res) => {
       username,
       email,
       password: hashedPassword,
-      points: 0,
+      points: 500, // ✅ Welcome bonus points
       is_active: true,
       role: 'user',
     });
 
     await user.save();
-    console.log(`✅ User registered: ${user.email}`);
+    console.log(`✅ User registered: ${user.email} with 500 welcome points`);
 
     const token = generateToken(user._id);
 
@@ -219,6 +220,7 @@ exports.register = async (req, res) => {
         id: user._id,
         username: user.username,
         email: user.email,
+        points: 500, // ✅ Return points in response
       },
     });
   } catch (error) {
@@ -306,37 +308,80 @@ exports.getCurrentUser = async (req, res) => {
 // @access  Public
 exports.googleCallback = async (req, res) => {
   try {
-    const { id, emails, displayName } = req.user;
+    console.log('🔐 Full Google Profile:');
+    console.log(JSON.stringify(req.user, null, 2));
 
+    // Extract user data - handle different possible structures
+    const id = req.user.id || req.user.sub;
+    const displayName = req.user.displayName || req.user.name || 'Google User';
+    const emails = req.user.emails || [];
+    const email = req.user.email;
+
+    console.log('📊 Extracted data:', { id, displayName, emailsCount: emails.length, email });
+
+    // Determine the actual email to use
+    let userEmail = null;
+    if (emails && emails.length > 0) {
+      userEmail = emails[0].value;
+    } else if (email) {
+      userEmail = email;
+    }
+
+    console.log('✉️ User email:', userEmail);
+
+    // Handle missing email
+    if (!userEmail) {
+      console.error('❌ No email found in Google profile');
+      return res.redirect(
+        `${process.env.FRONTEND_URL || 'http://localhost:3000'}/login?error=no_email`
+      );
+    }
+
+    // Find user by googleId
     let user = await User.findOne({ googleId: id });
 
-    if (!user) {
+    if (user) {
+      console.log(`✅ Existing user found with googleId: ${user.email}`);
+    } else {
+      console.log('👤 New user - checking if email already exists...');
+
+      // Check if email already exists (from regular registration)
+      const existingUser = await User.findOne({ email: userEmail });
+      if (existingUser) {
+        console.log(`⚠️ Email already registered: ${userEmail}`);
+        return res.redirect(
+          `${process.env.FRONTEND_URL || 'http://localhost:3000'}/login?error=email_exists`
+        );
+      }
+
+      // Create new user with 500 welcome points
       user = await User.create({
         googleId: id,
         username: displayName,
-        email: emails[0].value,
+        email: userEmail,
         password: 'oauth-google',
-        points: 500,
+        points: 500, // ✅ Welcome bonus points
         is_active: true,
         role: 'user',
       });
 
-      console.log(`✅ New user created via Google: ${user.email}`);
+      console.log(`✅ New user created via Google: ${user.email} with 500 welcome points`);
     }
 
-    console.log('Google callback received, user:', user);
-
+    // Generate token
     const token = generateToken(user._id);
 
-    console.log('Token generated, redirecting to frontend');
-
-    // Redirect to frontend with token
+    // Build redirect URL with query parameters
     const redirectUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/auth/google/success?token=${token}&username=${encodeURIComponent(user.username)}&email=${encodeURIComponent(user.email)}&points=${user.points}`;
 
-    console.log('Redirecting to:', redirectUrl);
+    console.log('🚀 Redirecting to:', redirectUrl);
     res.redirect(redirectUrl);
   } catch (error) {
-    console.error('Google callback error:', error);
-    res.status(500).json({ error: error.message });
+    console.error('❌ Google callback error:', error);
+
+    // Redirect to login with error message
+    res.redirect(
+      `${process.env.FRONTEND_URL || 'http://localhost:3000'}/login?error=${encodeURIComponent(error.message)}`
+    );
   }
 };

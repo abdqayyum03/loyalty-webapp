@@ -1,15 +1,17 @@
 const express = require('express');
-const router = express.Router();
-const {
-  getVouchers,
-  getVoucher,
-  getVouchersByCategory,
-  createVoucher,
-} = require('../controllers/voucherController');
+const voucherController = require('../controllers/voucherController');
+const { adminAuth } = require('../middleware/adminAuth');
 
-router.get('/', getVouchers);
-router.get('/:id', getVoucher);
-router.get('/category/:categoryId', getVouchersByCategory);
-router.post('/', createVoucher); // Admin only
+const router = express.Router();
+
+// Public routes
+router.get('/', voucherController.getVouchers);
+router.get('/:id', voucherController.getVoucherById);
+router.get('/category/:categoryId', voucherController.getVouchersByCategory);
+
+// Admin routes
+router.post('/', adminAuth, voucherController.createVoucher);
+router.put('/:id', adminAuth, voucherController.updateVoucher);
+router.delete('/:id', adminAuth, voucherController.deleteVoucher);
 
 module.exports = router;

@@ -3,75 +3,49 @@ const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const User = require('../models/User');
 
 console.log('Initializing Google OAuth Strategy...');
-console.log('Client ID:', process.env.GOOGLE_CLIENT_ID ? 'SET' : 'MISSING');
-console.log('Client Secret:', process.env.GOOGLE_CLIENT_SECRET ? 'SET' : 'MISSING');
+console.log('Client ID:', process.env.GOOGLE_CLIENT_ID ? 'SET' : 'NOT SET');
+console.log('Client Secret:', process.env.GOOGLE_CLIENT_SECRET ? 'SET' : 'NOT SET');
 
 passport.use(
   new GoogleStrategy(
     {
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: process.env.GOOGLE_CALLBACK_URL,
+      callbackURL: process.env.GOOGLE_CALLBACK_URL || 'http://localhost:5000/api/auth/google/callback',
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
-        console.log('Google profile received:', profile.displayName, profile.emails[0].value);
+        console.log('🔐 Google Profile Received:');
+        console.log('   ID:', profile.id);
+        console.log('   Display Name:', profile.displayName);
+        console.log('   Emails:', profile.emails);
+        console.log('   Email:', profile.email);
 
-        // Check if user exists with Google ID
-        let user = await User.findOne({ googleId: profile.id });
+        // Store full profile for use in callback
+        const userProfile = {
+          id: profile.id,
+          displayName: profile.displayName,
+          name: profile.name ? `${profile.name.givenName} ${profile.name.familyName}`.trim() : profile.displayName,
+          email: profile.emails && profile.emails.length > 0 ? profile.emails[0].value : null,
+          emails: profile.emails || [],
+          photos: profile.photos || [],
+        };
 
-        if (user) {
-          console.log('User found by googleId:', user.username);
-          return done(null, user);
-        }
+        console.log('✅ Processed Profile:', JSON.stringify(userProfile, null, 2));
 
-        // Check if user exists with email
-        user = await User.findOne({ email: profile.emails[0].value });
-
-        if (user) {
-          console.log('User found by email, linking googleId');
-          user.googleId = profile.id;
-          await user.save();
-          return done(null, user);
-        }
-
-        // Create new user
-        console.log('Creating new user from Google profile');
-        const newUser = await User.create({
-          googleId: profile.id,
-          username: profile.displayName,
-          email: profile.emails[0].value,
-          password: 'oauth-google',
-          is_active: true,
-          points: 500,
-        });
-
-        console.log('New user created:', newUser.username);
-        return done(null, newUser);
+        return done(null, userProfile);
       } catch (error) {
-        console.error('Error in Google strategy:', error);
+        console.error('❌ Error in Google strategy:', error);
         return done(error, null);
       }
     }
   )
 );
 
-// Serialize user
 passport.serializeUser((user, done) => {
-  console.log('Serializing user:', user._id);
-  done(null, user.id);
+  done(null, user);
 });
 
-// Deserialize user
-passport.deserializeUser(async (id, done) => {
-  try {
-    const user = await User.findById(id);
-    console.log('Deserializing user:', user?.username);
-    done(null, user);
-  } catch (error) {
-    console.error('Error deserializing user:', error);
-    done(error, null);
-  }
+passport.deserializeUser((user, done) => {
+  done(null, user);
 });
-
-module.exports = passport;
