@@ -52,7 +52,7 @@ const AdminLogin = ({ notice, onSuccess }) => {
             <span className="material-symbols-outlined" aria-hidden="true">shield_person</span>
             Admin
           </span>
-          <h1 className="text-headline-lg-mobile auth-title">VoucherPro Admin</h1>
+          <h1 className="text-headline-lg-mobile auth-title">CartRedeem Admin</h1>
           <p className="text-body-md auth-subtitle">
             Sign in to manage users, orders and rewards.
           </p>
