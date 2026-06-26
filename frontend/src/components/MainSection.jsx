@@ -17,7 +17,7 @@ const MainSection = () => {
       <div className="hero__media">
         <img
           className="hero__image"
-          src={`${process.env.PUBLIC_URL}/hero-banner.png`}
+          src={`${process.env.PUBLIC_URL}/cartredeem_hero@2x.png`}
           alt="Gifts and freebies waiting to be redeemed"
         />
       </div>

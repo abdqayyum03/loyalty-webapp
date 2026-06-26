@@ -124,7 +124,7 @@ const SignUp = ({ onSuccess, onSignIn }) => {
 
         {/* Heading */}
         <div className="auth-header">
-          <h1 className="text-headline-lg-mobile auth-title">VoucherPro</h1>
+          <h1 className="text-headline-lg-mobile auth-title">CartRedeem</h1>
           <p className="text-body-md auth-subtitle">
             {step === 'otp'
               ? `Enter the verification code we sent to ${email.trim()}.`

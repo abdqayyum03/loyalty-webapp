@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import './App.css';
+import './enhancements.css';
 
 import { isAuthenticated, logout, getCurrentUser, getMe, saveToken } from './api/auth';
 import { addToCart, getCartCount }                        from './api/cart';
@@ -10,6 +11,7 @@ import LoginPage         from './pages/Login';
 import SignUpPage        from './pages/SignUp';
 import ForgotPasswordPage from './pages/ForgotPassword';
 import GoogleVerifyPage  from './pages/GoogleVerify';
+import WelcomePage       from './pages/Welcome';
 import HomePage          from './pages/Home';
 import ProductsPage      from './pages/Products';
 import ProductDetailPage from './pages/ProductDetail';
@@ -44,14 +46,64 @@ const consumeGoogleRedirect = () => {
   return null;
 };
 
+const PAGE_TO_PATH = {
+  welcome: '/welcome',
+  login: '/login',
+  signup: '/signup',
+  'forgot-password': '/forgot-password',
+  'google-verify': '/google-verify',
+  home: '/home',
+  products: '/products',
+  cart: '/cart',
+  points: '/points',
+  profile: '/profile',
+  'edit-profile': '/profile/edit',
+};
+
+// Pages a signed-out visitor is allowed to land on directly.
+const PUBLIC_PAGES = new Set([
+  'welcome',
+  'login',
+  'signup',
+  'forgot-password',
+  'google-verify',
+]);
+
+const pageToPath = (page, voucherId) =>
+  page === 'product-detail'
+    ? `/products/${voucherId ?? ''}`
+    : PAGE_TO_PATH[page] || '/';
+
+// Read the current URL back into a { page, voucherId } target, or null when
+// the path doesn't map to a known page (e.g. bare "/").
+const pathToState = () => {
+  const path = window.location.pathname.replace(/\/+$/, '') || '/';
+  const detail = path.match(/^\/products\/(.+)$/);
+  if (detail) return { page: 'product-detail', voucherId: decodeURIComponent(detail[1]) };
+  const match = Object.entries(PAGE_TO_PATH).find(([, p]) => p === path);
+  return match ? { page: match[0], voucherId: null } : null;
+};
+
+// Guard a URL-derived target against the auth state: signed-out visitors can't
+// deep-link into protected pages, and signed-in users skip the auth screens.
+const resolveTarget = (target, authed) => {
+  if (!target) return { page: authed ? 'home' : 'welcome', voucherId: null };
+  if (authed && PUBLIC_PAGES.has(target.page)) return { page: 'home', voucherId: null };
+  if (!authed && !PUBLIC_PAGES.has(target.page)) return { page: 'welcome', voucherId: null };
+  return target;
+};
+
 const App = () => {
   const [googleRedirect] = useState(consumeGoogleRedirect);
   const [page, setPage] = useState(() => {
-    if (googleRedirect?.type === 'session' || isAuthenticated()) return 'home';
+    if (googleRedirect?.type === 'session') return 'home';
     if (googleRedirect?.type === 'otp') return 'google-verify';
-    return 'login';
+    return resolveTarget(pathToState(), isAuthenticated()).page;
   });
-  const [selectedVoucherId, setSelectedVoucherId] = useState(null);
+  const [selectedVoucherId, setSelectedVoucherId] = useState(() => {
+    if (googleRedirect) return null;
+    return resolveTarget(pathToState(), isAuthenticated()).voucherId;
+  });
   const [cartCount, setCartCount] = useState(0);
   const [loginNotice, setLoginNotice] = useState('');
   const [user, setUser] = useState(() => getCurrentUser());
@@ -61,6 +113,37 @@ const App = () => {
     const onHashChange = () => setAdminRoute(isAdminRoute());
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
+
+  // Keep the address bar in sync with the current page so each view has its own
+  // URL (e.g. /login, /products, /products/<id>). The first sync replaces the
+  // entry so we don't leave a stray "/" in the back history.
+  const didSyncUrl = useRef(false);
+  useEffect(() => {
+    if (adminRoute) return; // don't fight the "#admin" hash route
+    const target = pageToPath(page, selectedVoucherId);
+    if (window.location.pathname !== target) {
+      const method = didSyncUrl.current ? 'pushState' : 'replaceState';
+      window.history[method]({ page, voucherId: selectedVoucherId }, '', target);
+    }
+    didSyncUrl.current = true;
+  }, [page, selectedVoucherId, adminRoute]);
+
+  // Browser back/forward → restore the matching page from the URL.
+  useEffect(() => {
+    const onPopState = () => {
+      if (isAdminRoute()) {
+        setAdminRoute(true);
+        return;
+      }
+      setAdminRoute(false);
+      const restored = resolveTarget(pathToState(), isAuthenticated());
+      setPage(restored.page);
+      setSelectedVoucherId(restored.voucherId);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
   }, []);
 
   const refreshCartCount = () => {
@@ -129,9 +212,31 @@ const App = () => {
     return <AdminApp />;
   }
 
+  if (page === 'welcome') {
+    return (
+      <div className="app-shell">
+        <div className="page-transition" key="welcome">
+        <WelcomePage
+          onGetStarted={() => {
+            setLoginNotice('');
+            setPage('signup');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          onSignIn={() => {
+            setLoginNotice('');
+            setPage('login');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+        />
+        </div>
+      </div>
+    );
+  }
+
   if (page === 'login') {
     return (
       <div className="app-shell">
+        <div className="page-transition" key="login">
         <LoginPage
           notice={loginNotice}
           onSuccess={() => {
@@ -149,6 +254,7 @@ const App = () => {
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
         />
+        </div>
       </div>
     );
   }
@@ -156,6 +262,7 @@ const App = () => {
   if (page === 'forgot-password') {
     return (
       <div className="app-shell">
+        <div className="page-transition" key="forgot-password">
         <ForgotPasswordPage
           onSuccess={() => {
             setLoginNotice('Password reset successfully. Please sign in.');
@@ -168,6 +275,7 @@ const App = () => {
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
         />
+        </div>
       </div>
     );
   }
@@ -175,6 +283,7 @@ const App = () => {
   if (page === 'signup') {
     return (
       <div className="app-shell">
+        <div className="page-transition" key="signup">
         <SignUpPage
           onSuccess={() => {
             setLoginNotice('Account created successfully. Please sign in.');
@@ -187,6 +296,7 @@ const App = () => {
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
         />
+        </div>
       </div>
     );
   }
@@ -194,6 +304,7 @@ const App = () => {
   if (page === 'google-verify') {
     return (
       <div className="app-shell">
+        <div className="page-transition" key="google-verify">
         <GoogleVerifyPage
           email={googleRedirect?.email}
           onSuccess={() => {
@@ -206,6 +317,7 @@ const App = () => {
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
         />
+        </div>
       </div>
     );
   }
@@ -223,6 +335,7 @@ const App = () => {
         cartCount={cartCount}
       />
 
+      <div className="page-transition" key={page === 'product-detail' ? `detail-${selectedVoucherId}` : page}>
       {page === 'home' && (
         <HomePage onExplore={handleExplore} onViewAll={() => handleNavigate('products')} />
       )}
@@ -265,6 +378,7 @@ const App = () => {
           onCancel={() => handleNavigate('profile')}
         />
       )}
+      </div>
 
       <Footer />
     </div>
