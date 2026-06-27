@@ -1,0 +1,620 @@
+/* =====================================================================
+   Welcome / landing page
+   Standalone marketing page shown before sign-in. Every colour is read
+   from the shared design tokens in App.css so it re-themes in dark mode.
+   All selectors are namespaced with `wel-` to avoid collisions.
+   ===================================================================== */
+
+.wel {
+  font-family: var(--font-sans);
+  color: var(--color-on-surface);
+  background-color: var(--color-background);
+  min-height: 100vh;
+  scroll-behavior: smooth;
+}
+
+/* ---------- Buttons (shared) ---------- */
+.wel-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 24px;
+  border-radius: var(--radius-full);
+  border: 1px solid transparent;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 0.15s ease, background-color 0.2s ease,
+    color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.wel-btn .material-symbols-outlined { font-size: 20px; }
+.wel-btn:hover { transform: translateY(-1px); }
+.wel-btn:active { transform: translateY(0); }
+
+.wel-btn--sm { padding: 10px 18px; font-size: 14px; }
+
+.wel-btn--primary {
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+  box-shadow: 0 6px 16px rgba(0, 62, 199, 0.25);
+}
+.wel-btn--primary:hover { background-color: var(--color-primary-container); }
+
+.wel-btn--ghost {
+  background-color: var(--color-surface-container-lowest);
+  color: var(--color-on-surface);
+  border-color: var(--color-outline-variant);
+}
+.wel-btn--ghost:hover { border-color: var(--color-primary); color: var(--color-primary); }
+
+.wel-btn--invert {
+  background-color: var(--color-surface-container-lowest);
+  color: var(--color-primary);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+.wel-btn--invert:hover { background-color: #fff; }
+
+.wel-link-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-on-surface-variant);
+  padding: 8px 4px;
+}
+.wel-link-btn:hover { color: var(--color-primary); }
+
+/* ---------- Top nav ---------- */
+.wel-nav {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background-color: color-mix(in srgb, var(--color-background) 88%, transparent);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--color-outline-variant);
+}
+.wel-nav__inner {
+  max-width: var(--container-max);
+  margin: 0 auto;
+  padding: 14px var(--spacing-margin-mobile);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.wel-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--color-on-surface);
+}
+.wel-brand .material-symbols-outlined { color: var(--color-primary); font-size: 24px; }
+.wel-brand--static { cursor: default; }
+
+.wel-nav__links { display: none; gap: 28px; }
+.wel-nav__link {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-on-surface-variant);
+  padding: 6px 0;
+}
+.wel-nav__link:hover { color: var(--color-primary); }
+
+.wel-nav__actions { display: flex; align-items: center; gap: 10px; }
+
+/* ---------- Hero ---------- */
+.wel-hero {
+  max-width: var(--container-max);
+  margin: 0 auto;
+  padding: 56px var(--spacing-margin-mobile);
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 40px;
+  align-items: center;
+}
+.wel-hero__copy { display: flex; flex-direction: column; align-items: flex-start; gap: 22px; }
+
+.wel-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  background-color: var(--color-surface-container);
+  color: var(--color-primary);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  border: 1px solid var(--color-outline-variant);
+}
+.wel-badge .material-symbols-outlined { font-size: 16px; }
+
+.wel-hero__title {
+  margin: 0;
+  font-size: clamp(34px, 6vw, 56px);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  font-weight: 700;
+  color: var(--color-on-surface);
+}
+.wel-accent { color: var(--color-primary); display: block; }
+
+.wel-hero__subtitle {
+  margin: 0;
+  max-width: 540px;
+  font-size: 17px;
+  line-height: 1.6;
+  color: var(--color-on-surface-variant);
+}
+
+.wel-hero__cta { display: flex; flex-wrap: wrap; gap: 12px; }
+
+.wel-trust { margin-top: 6px; }
+.wel-trust__label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: var(--color-outline);
+  margin-bottom: 8px;
+}
+.wel-trust__items { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.wel-trust__item { font-size: 15px; font-weight: 600; color: var(--color-on-surface-variant); }
+.wel-trust__dot { color: var(--color-outline-variant); }
+
+/* Hero visual */
+.wel-hero__visual { display: flex; justify-content: center; }
+.wel-hero__panel {
+  position: relative;
+  width: 100%;
+  max-width: 440px;
+  aspect-ratio: 4 / 3;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(140deg, var(--color-primary) 0%, var(--color-primary-container) 55%, #2f6bff 100%);
+  box-shadow: 0 24px 60px rgba(0, 62, 199, 0.28);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.wel-hero__panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 80% 15%, rgba(255, 255, 255, 0.22), transparent 45%);
+}
+
+/* Voucher ticket mock */
+.wel-ticket {
+  position: relative;
+  z-index: 1;
+  width: 78%;
+  background-color: var(--color-surface-container-lowest);
+  border-radius: var(--radius-md);
+  padding: 18px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
+}
+.wel-ticket__top { display: flex; align-items: center; justify-content: space-between; }
+.wel-ticket__brand {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 13px; font-weight: 700; color: var(--color-on-surface);
+}
+.wel-ticket__brand .material-symbols-outlined { font-size: 18px; color: var(--color-primary); }
+.wel-ticket__pill {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.1em;
+  color: var(--color-primary);
+  background-color: var(--color-surface-container);
+  padding: 3px 8px; border-radius: var(--radius-full);
+}
+.wel-ticket__value {
+  margin-top: 14px;
+  font-size: 30px; font-weight: 700; letter-spacing: -0.02em;
+  color: var(--color-primary);
+}
+.wel-ticket__label { font-size: 12px; color: var(--color-on-surface-variant); }
+.wel-ticket__perf {
+  margin: 14px -18px;
+  border-top: 2px dashed var(--color-outline-variant);
+}
+.wel-ticket__bottom { display: flex; align-items: center; justify-content: space-between; }
+.wel-ticket__code {
+  font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.05em;
+  color: var(--color-on-surface-variant);
+}
+.wel-ticket__status {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 12px; font-weight: 600; color: var(--color-tertiary);
+}
+.wel-ticket__status .material-symbols-outlined { font-size: 16px; }
+
+.wel-hero__chip {
+  position: absolute;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: var(--radius-full);
+  background-color: var(--color-surface-container-lowest);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-on-surface);
+}
+.wel-hero__chip .material-symbols-outlined { font-size: 18px; }
+.wel-hero__chip--points { top: 12px; left: -6px; color: var(--color-tertiary); }
+.wel-hero__chip--cart { bottom: 14px; right: -6px; color: var(--color-primary); }
+
+/* ---------- Generic section ---------- */
+.wel-section {
+  max-width: var(--container-max);
+  margin: 0 auto;
+  padding: 64px var(--spacing-margin-mobile);
+}
+.wel-section__head { text-align: center; max-width: 660px; margin: 0 auto 44px; }
+.wel-section__head--left { text-align: left; margin-left: 0; }
+.wel-eyebrow {
+  display: inline-block;
+  font-size: 12px; font-weight: 700; letter-spacing: 0.16em;
+  color: var(--color-primary);
+  margin-bottom: 12px;
+}
+.wel-section__title {
+  margin: 0;
+  font-size: clamp(26px, 3.6vw, 38px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--color-on-surface);
+}
+.wel-section__title--invert { color: #ffffff; }
+.wel-section__lead {
+  margin: 14px auto 0;
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--color-on-surface-variant);
+}
+.wel-section__lead--left { margin-left: 0; max-width: 560px; }
+.wel-section__lead--invert { color: var(--color-primary-fixed-dim); }
+
+/* ---------- 3-card overview ---------- */
+.wel-cards-3 {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+}
+.wel-card {
+  background-color: var(--color-surface-container-lowest);
+  border: 1px solid var(--color-outline-variant);
+  border-radius: var(--radius-lg);
+  padding: 28px 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.wel-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.08);
+  border-color: var(--color-primary-fixed-dim);
+}
+.wel-card__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px; height: 48px;
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface-container);
+  color: var(--color-primary);
+  margin-bottom: 18px;
+}
+.wel-card__icon .material-symbols-outlined { font-size: 26px; }
+.wel-card__title { margin: 0 0 8px; font-size: 19px; font-weight: 700; color: var(--color-on-surface); }
+.wel-card__text { margin: 0; font-size: 15px; line-height: 1.6; color: var(--color-on-surface-variant); }
+
+/* ---------- Mission bento ---------- */
+.wel-bento {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 18px;
+}
+.wel-bento__cell {
+  border-radius: var(--radius-lg);
+  padding: 28px;
+  border: 1px solid var(--color-outline-variant);
+}
+.wel-bento__cell--feature { background-color: var(--color-surface-container-lowest); }
+.wel-bento__title {
+  margin: 0 0 12px;
+  display: flex; align-items: center; gap: 8px;
+  font-size: 22px; font-weight: 700; color: var(--color-on-surface);
+}
+.wel-bento__title .material-symbols-outlined { color: var(--color-primary); }
+.wel-bento__text { margin: 0 0 18px; font-size: 15px; line-height: 1.6; color: var(--color-on-surface-variant); }
+.wel-bento__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.wel-bento__list li {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 14px; font-weight: 500; color: var(--color-on-surface);
+}
+.wel-bento__list .material-symbols-outlined { font-size: 20px; color: var(--color-tertiary); }
+
+.wel-bento__cell--primary {
+  background: linear-gradient(150deg, var(--color-primary) 0%, var(--color-primary-container) 100%);
+  border-color: transparent;
+  color: var(--color-on-primary);
+  display: flex; flex-direction: column;
+}
+.wel-bento__kicker { font-size: 13px; font-weight: 700; letter-spacing: 0.04em; opacity: 0.9; }
+.wel-bento__copy { margin: 10px 0 0; font-size: 15px; line-height: 1.55; }
+.wel-bento__cell--primary .wel-bento__stat {
+  margin-top: auto;
+  padding-top: 24px;
+  font-size: 44px; font-weight: 700; letter-spacing: -0.02em;
+}
+.wel-bento__statlabel { font-size: 11px; font-weight: 600; letter-spacing: 0.12em; opacity: 0.85; }
+
+.wel-bento__cell--tertiary {
+  background-color: var(--color-tertiary);
+  border-color: transparent;
+  color: var(--color-on-tertiary);
+}
+.wel-bento__cell--tertiary .wel-bento__kicker,
+.wel-bento__cell--tertiary .wel-bento__copy { color: var(--color-on-tertiary); }
+
+.wel-bento__cell--security {
+  background-color: var(--color-surface-container);
+  display: flex; flex-direction: column; justify-content: space-between; gap: 18px;
+}
+.wel-bento__code {
+  align-self: flex-start;
+  font-family: var(--font-mono);
+  font-size: 13px; letter-spacing: 0.06em;
+  color: var(--color-primary);
+  background-color: var(--color-surface-container-lowest);
+  border: 1px solid var(--color-outline-variant);
+  padding: 8px 14px; border-radius: var(--radius-full);
+}
+
+/* ---------- Roadmap (dark band) ----------
+   Locked to a dark navy gradient in BOTH themes. The section's light "invert"
+   text was designed for a dark backdrop, so the band must not flip to light in
+   dark mode (which is what --color-inverse-surface would do). */
+.wel-roadmap {
+  background: linear-gradient(160deg, #1f3151 0%, #15233c 55%, #0e1a2c 100%);
+  margin-top: 24px;
+}
+.wel-roadmap__inner {
+  max-width: var(--container-max);
+  margin: 0 auto;
+  padding: 72px var(--spacing-margin-mobile);
+}
+.wel-roadmap .wel-section__head { text-align: center; }
+.wel-timeline {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 28px;
+}
+.wel-timeline__item {
+  position: relative;
+  background-color: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: var(--radius-lg);
+  padding: 26px 24px;
+  transition: transform 0.25s ease, border-color 0.25s ease,
+    background-color 0.25s ease;
+}
+.wel-timeline__item:hover {
+  transform: translateY(-4px);
+  background-color: rgba(255, 255, 255, 0.1);
+  border-color: var(--color-tertiary-fixed-dim);
+}
+.wel-timeline__phase {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.12em;
+  color: var(--color-tertiary-fixed-dim);
+}
+.wel-timeline__dot {
+  width: 44px; height: 44px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: var(--radius-full);
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+  margin: 14px 0 16px;
+}
+.wel-timeline__title { margin: 0 0 8px; font-size: 19px; font-weight: 700; color: #ffffff; }
+.wel-timeline__text { margin: 0; font-size: 14px; line-height: 1.6; color: var(--color-primary-fixed-dim); }
+
+/* ---------- CTA ---------- */
+.wel-cta {
+  max-width: var(--container-max);
+  margin: 0 auto;
+  padding: 72px var(--spacing-margin-mobile);
+}
+.wel-cta__panel {
+  background: linear-gradient(150deg, var(--color-primary) 0%, var(--color-primary-container) 100%);
+  border-radius: var(--radius-lg);
+  padding: 56px 28px;
+  text-align: center;
+  color: var(--color-on-primary);
+  box-shadow: 0 24px 60px rgba(0, 62, 199, 0.3);
+}
+.wel-cta__title { margin: 0; font-size: clamp(26px, 4vw, 40px); font-weight: 700; letter-spacing: -0.02em; }
+.wel-cta__text {
+  margin: 16px auto 28px;
+  max-width: 520px;
+  font-size: 16px; line-height: 1.6;
+  opacity: 0.92;
+}
+
+/* ---------- Learning note ---------- */
+.wel-learning {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 0 var(--spacing-margin-mobile) 72px;
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+}
+.wel-learning__icon {
+  flex-shrink: 0;
+  width: 48px; height: 48px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: var(--radius-md);
+  background-color: var(--color-tertiary-container);
+  color: var(--color-on-tertiary);
+}
+.wel-learning__title { margin: 0 0 6px; font-size: 18px; font-weight: 700; color: var(--color-on-surface); }
+.wel-learning__text { margin: 0; font-size: 15px; line-height: 1.6; color: var(--color-on-surface-variant); }
+
+/* ---------- Footer ---------- */
+.wel-footer {
+  border-top: 1px solid var(--color-outline-variant);
+  background-color: var(--color-surface-container-low);
+}
+.wel-footer__inner {
+  max-width: var(--container-max);
+  margin: 0 auto;
+  padding: 32px var(--spacing-margin-mobile);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.wel-footer__copy { margin: 8px 0 0; font-size: 13px; color: var(--color-on-surface-variant); }
+.wel-footer__links { display: flex; flex-wrap: wrap; gap: 22px; }
+.wel-footer__link {
+  background: none; border: none; cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: 14px; color: var(--color-on-surface-variant);
+}
+.wel-footer__link:hover { color: var(--color-primary); }
+
+/* =====================================================================
+   Responsive — desktop layouts
+   ===================================================================== */
+@media (min-width: 768px) {
+  .wel-nav__inner,
+  .wel-hero,
+  .wel-section,
+  .wel-roadmap__inner,
+  .wel-cta,
+  .wel-footer__inner {
+    padding-left: var(--spacing-margin-desktop);
+    padding-right: var(--spacing-margin-desktop);
+  }
+
+  .wel-nav__links { display: flex; }
+
+  .wel-hero { grid-template-columns: 1.05fr 0.95fr; padding-top: 72px; padding-bottom: 72px; }
+
+  .wel-cards-3 { grid-template-columns: repeat(3, 1fr); }
+
+  .wel-timeline { grid-template-columns: repeat(3, 1fr); }
+
+  .wel-bento {
+    grid-template-columns: 1.4fr 1fr;
+    grid-template-areas:
+      'feature primary'
+      'tertiary security';
+  }
+  .wel-bento__cell--feature { grid-area: feature; }
+  .wel-bento__cell--primary { grid-area: primary; }
+  .wel-bento__cell--tertiary { grid-area: tertiary; }
+  .wel-bento__cell--security { grid-area: security; }
+
+  .wel-footer__inner { flex-direction: row; align-items: center; justify-content: space-between; }
+  .wel-learning { align-items: center; }
+  .wel-cta__panel { padding: 64px 48px; }
+}
+
+@media (min-width: 1024px) {
+  .wel-bento {
+    grid-template-columns: 1.5fr 1fr 1fr;
+    grid-template-areas:
+      'feature primary primary'
+      'feature tertiary security';
+  }
+}
+
+/* =====================================================================
+   Motion & micro-interactions
+   ===================================================================== */
+
+/* Hero entrance — title, copy and CTAs cascade in on first paint */
+.wel-hero__copy > * {
+  animation: wel-rise 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.wel-hero__copy > *:nth-child(1) { animation-delay: 0.05s; }
+.wel-hero__copy > *:nth-child(2) { animation-delay: 0.13s; }
+.wel-hero__copy > *:nth-child(3) { animation-delay: 0.21s; }
+.wel-hero__copy > *:nth-child(4) { animation-delay: 0.29s; }
+.wel-hero__copy > *:nth-child(5) { animation-delay: 0.37s; }
+
+.wel-hero__panel {
+  animation: wel-rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.18s both;
+}
+
+@keyframes wel-rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+}
+
+/* Floating reward chips on the hero ticket */
+.wel-hero__chip--points {
+  animation: wel-float 4s ease-in-out infinite;
+}
+.wel-hero__chip--cart {
+  animation: wel-float 4s ease-in-out 1.6s infinite;
+}
+
+@keyframes wel-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-9px); }
+}
+
+/* Scroll-reveal — only armed once JS adds `.wel--reveal-ready`, so content
+   is never hidden if scripting is unavailable. */
+.wel--reveal-ready [data-reveal] {
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity 0.6s ease, transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: var(--reveal-delay, 0s);
+  will-change: opacity, transform;
+}
+.wel--reveal-ready [data-reveal].is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+/* Press feedback on the ghost / invert buttons that don't already scale */
+.wel-btn:active { transform: scale(0.97); }
+
+@media (prefers-reduced-motion: reduce) {
+  .wel-hero__copy > *,
+  .wel-hero__panel,
+  .wel-hero__chip--points,
+  .wel-hero__chip--cart {
+    animation: none;
+  }
+  .wel--reveal-ready [data-reveal] {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}

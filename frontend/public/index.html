@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" href="%PUBLIC_URL%/CRI_white.png" />
+    <link rel="apple-touch-icon" href="%PUBLIC_URL%/CRI_white.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#000000" />
+    <title>CartRedeem App</title>
+    <!--
+      Apply the saved (or system-preferred) theme before first paint so the
+      page never flashes light before switching to dark. Mirrors the logic in
+      src/hooks/useDarkMode.js, which is the source of truth thereafter.
+    -->
+    <script>
+      (function () {
+        try {
+          var saved = localStorage.getItem('voucherpro-theme');
+          var prefersDark =
+            window.matchMedia &&
+            window.matchMedia('(prefers-color-scheme: dark)').matches;
+          var theme =
+            saved === 'light' || saved === 'dark'
+              ? saved
+              : prefersDark
+              ? 'dark'
+              : 'light';
+          document.documentElement.setAttribute('data-theme', theme);
+        } catch (e) {
+          /* localStorage/matchMedia unavailable — fall back to light */
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="root"></div>
+  </body>
+</html>
