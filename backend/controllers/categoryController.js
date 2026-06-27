@@ -22,9 +22,11 @@ exports.getCategories = async (req, res) => {
 exports.getCategoryById = async (req, res) => {
   try {
     const category = await Category.findById(req.params.id);
+
     if (!category) {
       return res.status(404).json({ error: 'Category not found' });
     }
+
     res.status(200).json({
       success: true,
       data: category,
@@ -39,7 +41,7 @@ exports.getCategoryById = async (req, res) => {
 // @access  Private/Admin
 exports.createCategory = async (req, res) => {
   try {
-    const { name, description } = req.body;
+    const { name, description, icon, image, is_active } = req.body;
 
     if (!name) {
       return res.status(400).json({ error: 'Please provide category name' });
@@ -54,6 +56,9 @@ exports.createCategory = async (req, res) => {
     const category = await Category.create({
       name,
       description: description || '',
+      icon: icon || null,
+      image: image || null,
+      is_active: is_active !== undefined ? is_active : true,
     });
 
     console.log(`✅ Category created: ${category.name}`);
@@ -74,11 +79,11 @@ exports.createCategory = async (req, res) => {
 // @access  Private/Admin
 exports.updateCategory = async (req, res) => {
   try {
-    const { name, description } = req.body;
+    const { name, description, icon, image, is_active } = req.body;
 
     const category = await Category.findByIdAndUpdate(
       req.params.id,
-      { name, description },
+      { name, description, icon, image, is_active },
       { new: true, runValidators: true }
     );
 

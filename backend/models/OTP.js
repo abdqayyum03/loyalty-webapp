@@ -18,6 +18,12 @@ const otpSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  // Set only for a first-time Google sign-in that's pending OTP verification.
+  // When present, verifying the code creates a Google-linked account instead of
+  // a regular email/password one.
+  googleId: {
+    type: String,
+  },
   expiresAt: {
     type: Date,
     default: () => new Date(Date.now() + 10 * 60 * 1000), // 10 minutes

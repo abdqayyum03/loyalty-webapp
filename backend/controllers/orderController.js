@@ -1,10 +1,16 @@
 const User = require('../models/User');
 const CartItem = require('../models/CartItem');
 const CartItemHistory = require('../models/CartItemHistory');
+const Voucher = require('../models/Voucher');
 const { generateOrderPDF } = require('../utils/generatePDF');
 const { sendCheckoutEmail } = require('../utils/sendEmail');
 const fs = require('fs');
 const path = require('path');
+
+// A voucher is expired once its (optional) valid_until date is in the past.
+// Vouchers with no valid_until never expire.
+const isVoucherExpired = (voucher) =>
+  Boolean(voucher?.valid_until) && new Date(voucher.valid_until).getTime() < Date.now();
 
 // @desc    Checkout - Redeem Vouchers
 // @route   POST /api/orders/checkout
@@ -24,6 +30,16 @@ exports.checkout = async (req, res) => {
 
     if (cartItems.length === 0) {
       return res.status(400).json({ error: 'Cart is empty' });
+    }
+
+    // Block checkout if any voucher in the cart has expired.
+    const expiredItems = cartItems.filter((item) => isVoucherExpired(item.voucher_id));
+    if (expiredItems.length > 0) {
+      const titles = expiredItems.map((item) => item.voucher_id.title).join(', ');
+      return res.status(400).json({
+        error: `These vouchers have already expired and can no longer be redeemed: ${titles}. Please remove them from your cart.`,
+        code: 'VOUCHER_EXPIRED',
+      });
     }
 
     // Calculate total points needed
@@ -78,6 +94,14 @@ exports.checkout = async (req, res) => {
         totalPoints,
         userRemainingPoints: user.points,
         orderId: historyRecords[0]?._id,
+        // One record (and therefore one downloadable receipt) per voucher line,
+        // so the redeem confirmation can offer a PDF for each item.
+        orders: historyRecords.map((order) => ({
+          orderId: order._id,
+          voucherTitle: order.voucher_title,
+          quantity: order.quantity,
+          points: order.points_deducted,
+        })),
       },
       user: {
         id: user._id,
@@ -88,6 +112,100 @@ exports.checkout = async (req, res) => {
     });
   } catch (error) {
     console.error('Checkout error:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// @desc    Redeem a single voucher directly (skips the cart)
+// @route   POST /api/orders/redeem
+// @access  Private
+exports.redeemNow = async (req, res) => {
+  try {
+    const userId = req.userId;
+    const { voucher_id } = req.body;
+    const quantity = Math.max(1, parseInt(req.body.quantity, 10) || 1);
+
+    if (!voucher_id) {
+      return res.status(400).json({ error: 'Please provide a voucher ID' });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const voucher = await Voucher.findById(voucher_id);
+    if (!voucher) {
+      return res.status(404).json({ error: 'Voucher not found' });
+    }
+
+    // Reject redemption of an expired voucher.
+    if (isVoucherExpired(voucher)) {
+      return res.status(400).json({
+        error: 'This voucher has already expired and can no longer be redeemed.',
+        code: 'VOUCHER_EXPIRED',
+      });
+    }
+
+    const totalPoints = quantity * voucher.points;
+
+    // Check if user has enough points
+    if (user.points < totalPoints) {
+      return res.status(400).json({
+        error: `Insufficient points. You need ${totalPoints - user.points} more points`,
+      });
+    }
+
+    // Record the redemption (same history collection the cart checkout uses)
+    const order = await CartItemHistory.create({
+      user_id: userId,
+      voucher_id: voucher._id,
+      voucher_title: voucher.title,
+      quantity,
+      points_deducted: totalPoints,
+      order_date: new Date(),
+    });
+
+    // Deduct points
+    user.points -= totalPoints;
+    await user.save();
+
+    console.log(`✅ Redeemed "${voucher.title}" for ${totalPoints} pts, remaining: ${user.points}`);
+
+    // Best-effort confirmation email — don't fail the redemption if it errors.
+    try {
+      await sendCheckoutEmail(order, user);
+    } catch (emailError) {
+      console.error('⚠️ Error sending redemption email:', emailError);
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Voucher redeemed successfully',
+      // Same shape as checkout so the frontend modal / receipt flow is shared.
+      orderDetails: {
+        totalItems: 1,
+        totalPoints,
+        userRemainingPoints: user.points,
+        orderId: order._id,
+        orders: [
+          {
+            orderId: order._id,
+            voucherTitle: order.voucher_title,
+            quantity: order.quantity,
+            points: order.points_deducted,
+          },
+        ],
+      },
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        points: user.points,
+      },
+    });
+  } catch (error) {
+    console.error('Redeem error:', error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -168,22 +286,14 @@ exports.downloadOrderPDF = async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Generate PDF
-    const filename = await generateOrderPDF(order, user);
+    // Generate PDF in memory and stream it back (no disk writes)
+    const pdfBuffer = await generateOrderPDF(order, user);
 
-    const filepath = path.join(__dirname, '../pdfs', filename);
-
-    // Send file
-    res.download(filepath, `Order-${orderId}.pdf`, (err) => {
-      if (err) {
-        console.error('Error downloading file:', err);
-      }
-
-      // Delete file after download
-      fs.unlink(filepath, (unlinkErr) => {
-        if (unlinkErr) console.error('Error deleting PDF:', unlinkErr);
-      });
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="Order-${orderId}.pdf"`,
     });
+    res.send(pdfBuffer);
   } catch (error) {
     console.error('PDF download error:', error);
     res.status(500).json({ error: error.message });

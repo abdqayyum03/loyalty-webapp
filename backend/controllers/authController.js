@@ -1,8 +1,9 @@
 const User = require('../models/User');
 const OTP = require('../models/OTP');
+const PasswordResetOTP = require('../models/PasswordResetOTP');
 const jwt = require('jsonwebtoken');
 const { generateOTP } = require('../utils/generateOTP');
-const { sendOTPEmail } = require('../utils/sendEmail');
+const { sendOTPEmail, sendPasswordResetEmail } = require('../utils/sendEmail');
 
 // Generate JWT Token
 const generateToken = (id) => {
@@ -94,13 +95,13 @@ exports.verifyOTP = async (req, res) => {
       });
     }
 
-    // Create user with 500 welcome points
-    const hashedPassword = await User.hashPassword(otpRecord.password);
-
+    // Create user with 500 welcome points. Assign the password in plaintext —
+    // the User model's pre-save hook hashes it once. Hashing here too would
+    // double-hash the password and break login ("Invalid credentials").
     const user = new User({
       username: otpRecord.username,
       email: otpRecord.email,
-      password: hashedPassword,
+      password: otpRecord.password,
       points: 500, // ✅ CHANGED FROM 0 TO 500 - Welcome bonus points
       is_active: true,
       role: 'user',
@@ -196,12 +197,12 @@ exports.register = async (req, res) => {
       });
     }
 
-    const hashedPassword = await User.hashPassword(password);
-
+    // Assign the password in plaintext — the User model's pre-save hook hashes
+    // it once. Hashing here too would double-hash and break login.
     const user = new User({
       username,
       email,
-      password: hashedPassword,
+      password,
       points: 500, // ✅ Welcome bonus points
       is_active: true,
       role: 'user',
@@ -283,6 +284,107 @@ exports.login = async (req, res) => {
   }
 };
 
+// @desc    Send a password-reset code to the account's email
+// @route   POST /api/auth/forgot-password
+// @access  Public
+exports.forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: 'Please provide your email address' });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+    const user = await User.findOne({ email: normalizedEmail });
+
+    // We tell the user the account doesn't exist (matching the rest of the
+    // app's clear-error style, e.g. signup). If email enumeration ever becomes
+    // a concern, return a generic success here regardless of `user`.
+    if (!user) {
+      return res.status(404).json({
+        error: 'No account found with that email address',
+      });
+    }
+
+    // Replace any previous reset code for this email.
+    await PasswordResetOTP.deleteMany({ email: normalizedEmail });
+
+    const otp = generateOTP();
+    console.log(`🔑 Generated password-reset OTP for ${normalizedEmail}: ${otp}`);
+
+    await PasswordResetOTP.create({ email: normalizedEmail, otp });
+
+    await sendPasswordResetEmail(normalizedEmail, otp, user.username);
+
+    res.status(200).json({
+      success: true,
+      message: 'A password-reset code has been sent to your email. Valid for 10 minutes.',
+      email: normalizedEmail,
+    });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// @desc    Verify the reset code and set a new password
+// @route   POST /api/auth/reset-password
+// @access  Public
+exports.resetPassword = async (req, res) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+
+    if (!email || !otp || !newPassword) {
+      return res.status(400).json({
+        error: 'Please provide email, the reset code, and a new password',
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        error: 'New password must be at least 6 characters',
+      });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+
+    const otpRecord = await PasswordResetOTP.findOne({ email: normalizedEmail, otp });
+    if (!otpRecord) {
+      return res.status(400).json({ error: 'Invalid or expired reset code' });
+    }
+
+    if (new Date() > otpRecord.expiresAt) {
+      await PasswordResetOTP.deleteOne({ _id: otpRecord._id });
+      return res.status(400).json({
+        error: 'Reset code has expired. Please request a new one.',
+      });
+    }
+
+    const user = await User.findOne({ email: normalizedEmail });
+    if (!user) {
+      await PasswordResetOTP.deleteOne({ _id: otpRecord._id });
+      return res.status(404).json({ error: 'Account no longer exists' });
+    }
+
+    // Assign in plaintext — the User model's pre-save hook hashes it once.
+    user.password = newPassword;
+    await user.save();
+    console.log(`✅ Password reset for ${user.email}`);
+
+    // Burn the code so it can't be reused.
+    await PasswordResetOTP.deleteOne({ _id: otpRecord._id });
+
+    res.status(200).json({
+      success: true,
+      message: 'Password reset successfully. You can now sign in with your new password.',
+    });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
 // @desc    Get current user
 // @route   GET /api/auth/me
 // @access  Private
@@ -299,6 +401,133 @@ exports.getCurrentUser = async (req, res) => {
       data: user,
     });
   } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// @desc    Update the signed-in user's profile
+// @route   PATCH /api/auth/me
+// @access  Private
+exports.updateProfile = async (req, res) => {
+  try {
+    const { username, email, phone, avatar, currentPassword, newPassword } = req.body;
+
+    const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Username — must stay unique across other accounts.
+    if (username && username !== user.username) {
+      const taken = await User.findOne({ username, _id: { $ne: user._id } });
+      if (taken) {
+        return res.status(400).json({ error: 'That username is already taken' });
+      }
+      user.username = username;
+    }
+
+    // Email — also unique across other accounts.
+    if (email && email !== user.email) {
+      const taken = await User.findOne({ email, _id: { $ne: user._id } });
+      if (taken) {
+        return res.status(400).json({ error: 'That email is already registered' });
+      }
+      user.email = email;
+    }
+
+    if (phone !== undefined) user.phone = phone;
+    if (avatar !== undefined) user.avatar = avatar;
+
+    // Optional password change — verify the current one first. The model's
+    // pre-save hook hashes the new value, so we assign it in plaintext.
+    if (newPassword) {
+      if (!currentPassword) {
+        return res.status(400).json({ error: 'Enter your current password to set a new one' });
+      }
+      if (!user.password) {
+        return res.status(400).json({ error: 'This account has no password set' });
+      }
+      const isMatch = await user.matchPassword(currentPassword);
+      if (!isMatch) {
+        return res.status(400).json({ error: 'Current password is incorrect' });
+      }
+      user.password = newPassword;
+    }
+
+    await user.save();
+    console.log(`✅ Profile updated: ${user.email}`);
+
+    // Never return the password hash to the client.
+    const safe = user.toObject();
+    delete safe.password;
+
+    res.status(200).json({
+      success: true,
+      message: 'Profile updated successfully',
+      data: safe,
+    });
+  } catch (error) {
+    console.error('Update profile error:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// @desc    Verify OTP for a first-time Google sign-in and create the account
+// @route   POST /api/auth/verify-google-otp
+// @access  Public
+exports.verifyGoogleOTP = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    if (!email || !otp) {
+      return res.status(400).json({ error: 'Please provide email and OTP' });
+    }
+
+    const otpRecord = await OTP.findOne({ email, otp });
+    if (!otpRecord) {
+      return res.status(400).json({ error: 'Invalid or expired OTP' });
+    }
+
+    if (new Date() > otpRecord.expiresAt) {
+      await OTP.deleteOne({ _id: otpRecord._id });
+      return res.status(400).json({ error: 'OTP has expired. Please request a new one.' });
+    }
+
+    // The account may already exist if the user retried — reuse it rather than
+    // hitting the unique-email constraint.
+    let user = await User.findOne({ email: otpRecord.email });
+    if (!user) {
+      user = new User({
+        googleId: otpRecord.googleId,
+        username: otpRecord.username,
+        email: otpRecord.email,
+        password: otpRecord.password || 'oauth-google',
+        points: 500, // welcome bonus, matching the regular signup flow
+        is_active: true,
+        role: 'user',
+      });
+      await user.save();
+      console.log(`✅ Google account created via OTP: ${user.email}`);
+    }
+
+    await OTP.deleteOne({ _id: otpRecord._id });
+
+    const token = generateToken(user._id);
+
+    res.status(201).json({
+      success: true,
+      message: 'Account created successfully!',
+      token,
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        points: user.points,
+        role: user.role,
+      },
+    });
+  } catch (error) {
+    console.error('Verify Google OTP error:', error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -360,15 +589,14 @@ exports.googleCallback = async (req, res) => {
         username: displayName,
         email: userEmail,
         password: 'oauth-google',
-        points: 500, // ✅ Welcome bonus points
         is_active: true,
+        points: 500, // ✅ Welcome bonus points
         role: 'user',
       });
 
       console.log(`✅ New user created via Google: ${user.email} with 500 welcome points`);
     }
 
-    // Generate token
     const token = generateToken(user._id);
 
     // Build redirect URL with query parameters

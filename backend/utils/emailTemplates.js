@@ -193,7 +193,7 @@ const getCheckoutEmailTemplate = (order, user) => {
 
             <!-- Footer -->
             <div class="footer">
-              <p>Thank you for using Carter Loyalty System!</p>
+              <p>Thank you for using CartRedeem System!</p>
               <p>© 2026 Carter Financial Institute. All rights reserved.</p>
               <p>This is an automated email. Please do not reply to this message.</p>
             </div>

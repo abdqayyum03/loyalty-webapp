@@ -6,6 +6,7 @@ const Voucher = require('../models/Voucher');
 exports.getVouchers = async (req, res) => {
   try {
     const vouchers = await Voucher.find().populate('category_id', 'name');
+
     res.status(200).json({
       success: true,
       count: vouchers.length,
@@ -25,9 +26,11 @@ exports.getVoucherById = async (req, res) => {
       'category_id',
       'name'
     );
+
     if (!voucher) {
       return res.status(404).json({ error: 'Voucher not found' });
     }
+
     res.status(200).json({
       success: true,
       data: voucher,
@@ -61,8 +64,17 @@ exports.getVouchersByCategory = async (req, res) => {
 // @access  Private/Admin
 exports.createVoucher = async (req, res) => {
   try {
-    const { category_id, points, title, description, quantity_available } =
-      req.body;
+    const {
+      category_id,
+      points,
+      title,
+      description,
+      quantity_available,
+      image,
+      is_active,
+      valid_until,
+      terms,
+    } = req.body;
 
     if (!category_id || !points || !title) {
       return res.status(400).json({
@@ -70,13 +82,22 @@ exports.createVoucher = async (req, res) => {
       });
     }
 
+    // Only keep non-empty term lines; when none are provided let the schema
+    // default supply the standard set.
+    const cleanTerms = Array.isArray(terms)
+      ? terms.map((t) => String(t).trim()).filter(Boolean)
+      : undefined;
+
     const voucher = await Voucher.create({
       category_id,
       points,
       title,
       description: description || '',
       quantity_available: quantity_available || 100,
-      is_active: true,
+      image: image || null,
+      is_active: is_active !== undefined ? is_active : true,
+      valid_until: valid_until || null,
+      ...(cleanTerms && cleanTerms.length > 0 ? { terms: cleanTerms } : {}),
     });
 
     console.log(`✅ Voucher created: ${voucher.title}`);
@@ -97,8 +118,21 @@ exports.createVoucher = async (req, res) => {
 // @access  Private/Admin
 exports.updateVoucher = async (req, res) => {
   try {
-    const { category_id, points, title, description, quantity_available, is_active } =
-      req.body;
+    const {
+      category_id,
+      points,
+      title,
+      description,
+      quantity_available,
+      image,
+      is_active,
+      valid_until,
+      terms,
+    } = req.body;
+
+    const cleanTerms = Array.isArray(terms)
+      ? terms.map((t) => String(t).trim()).filter(Boolean)
+      : undefined;
 
     const voucher = await Voucher.findByIdAndUpdate(
       req.params.id,
@@ -108,7 +142,10 @@ exports.updateVoucher = async (req, res) => {
         title,
         description,
         quantity_available,
+        image,
         is_active,
+        valid_until: valid_until || null,
+        ...(cleanTerms ? { terms: cleanTerms } : {}),
       },
       { new: true, runValidators: true }
     );
